@@ -1,261 +1,210 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import axios from "axios";
-import { Send, Package, Loader2, Bot, User, Zap } from "lucide-react";
 
-const SUGGESTIONS = [
-  "Shipment is in FAILED status, what should I do?",
-  "Customer was unavailable, explain NDR workflow",
-  "Shipment has breached SLA, what actions to trigger?",
-  "Delay due to hub congestion, what is the RCA?",
-  "How does reverse logistics work?",
+const LANGUAGES = [
+  "Tamil", "Hindi", "Telugu", "Kannada", "Malayalam",
+  "French", "Spanish", "German", "Japanese", "Arabic"
 ];
 
 export default function App() {
-  const [messages, setMessages] = useState([
-    {
-      role: "ai",
-      text: "Hello! I'm your Logistics AI Agent powered by LangChain + Groq. I can help with shipment status, NDR workflows, SLA breaches, delay RCA, and reverse logistics. How can I help?",
-    },
-  ]);
   const [input, setInput] = useState("");
+  const [targetLang, setTargetLang] = useState("Tamil");
+  const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
-  const bottomRef = useRef(null);
+  const [mode, setMode] = useState("translate");
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const sendQuery = async (query) => {
-    if (!query.trim() || loading) return;
-    const userMsg = { role: "user", text: query };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+  const handleGenerate = async () => {
+    if (!input.trim()) return;
     setLoading(true);
+    setOutput("");
+
+    const prompt = mode === "translate"
+      ? `Translate the following text to ${targetLang}. Return only the translated text:\n\n${input}`
+      : `Write a professional version of the following content in ${targetLang}:\n\n${input}`;
 
     try {
       const res = await axios.post("http://127.0.0.1:8000/agent/query", {
-        query,
+        query: prompt
       });
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", text: res.data.response },
-      ]);
+      setOutput(res.data.response);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: "⚠️ Could not connect to backend. Make sure FastAPI server is running.",
-        },
-      ]);
+      setOutput("Error connecting to backend.");
     }
     setLoading(false);
   };
 
   return (
-    <div style={{ fontFamily: "Segoe UI, sans-serif" }} className="app">
-      <style>{`
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0d14; color: #e2e8f0; }
-
-        .app { display: flex; flex-direction: column; height: 100vh; }
-
-        .header {
-          background: #0f1623;
-          border-bottom: 1px solid #1e2940;
-          padding: 14px 28px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .header-icon {
-          background: linear-gradient(135deg, #1e3a5f, #2563eb);
-          border-radius: 10px;
-          padding: 8px;
-          display: flex;
-        }
-        .header-title { font-size: 17px; font-weight: 700; color: #fff; }
-        .header-sub { font-size: 12px; color: #4a6080; margin-top: 1px; }
-        .online-dot {
-          width: 8px; height: 8px; background: #22c55e;
-          border-radius: 50%; margin-left: auto;
-          box-shadow: 0 0 8px #22c55e;
-        }
-
-        .chat {
-          flex: 1; overflow-y: auto; padding: 24px;
-          display: flex; flex-direction: column; gap: 20px;
-          max-width: 820px; width: 100%; margin: 0 auto;
-        }
-
-        .msg { display: flex; gap: 12px; animation: fadeUp 0.3s ease; }
-        .msg.user { flex-direction: row-reverse; }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .avatar {
-          width: 36px; height: 36px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
-        }
-        .avatar.ai { background: linear-gradient(135deg, #1e3a5f, #2563eb); }
-        .avatar.user { background: linear-gradient(135deg, #2d1b69, #7c3aed); }
-
-        .bubble {
-          background: #0f1623;
-          border: 1px solid #1e2940;
-          border-radius: 14px;
-          padding: 12px 16px;
-          max-width: 680px;
-          font-size: 14px;
-          line-height: 1.7;
-          color: #cbd5e1;
-        }
-        .msg.user .bubble {
-          background: #13203a;
-          border-color: #1e3a5f;
-          color: #e2e8f0;
-        }
-        .bubble-label {
-          font-size: 10px; color: #3b6ea5;
-          text-transform: uppercase; letter-spacing: 0.8px;
-          margin-bottom: 5px; font-weight: 600;
-        }
-
-        .typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
-        .typing span {
-          width: 7px; height: 7px; background: #2563eb;
-          border-radius: 50%; animation: bounce 1.2s infinite;
-        }
-        .typing span:nth-child(2) { animation-delay: 0.2s; }
-        .typing span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce {
-          0%,60%,100% { transform: translateY(0); }
-          30% { transform: translateY(-6px); }
-        }
-
-        .suggestions {
-          display: flex; flex-wrap: wrap; gap: 8px;
-          padding: 0 24px 12px;
-          max-width: 820px; width: 100%; margin: 0 auto;
-        }
-        .chip {
-          background: #0f1623; border: 1px solid #1e2940;
-          border-radius: 20px; padding: 6px 14px;
-          font-size: 12px; color: #64748b;
-          cursor: pointer; transition: all 0.2s;
-        }
-        .chip:hover { border-color: #2563eb; color: #2563eb; background: #0d1829; }
-
-        .input-area {
-          padding: 12px 24px 20px;
-          max-width: 820px; width: 100%; margin: 0 auto;
-        }
-        .input-box {
-          display: flex; gap: 10px; align-items: flex-end;
-          background: #0f1623; border: 1px solid #1e2940;
-          border-radius: 14px; padding: 12px 14px;
-          transition: border-color 0.2s;
-        }
-        .input-box:focus-within { border-color: #2563eb; }
-
-        textarea {
-          flex: 1; background: transparent; border: none;
-          outline: none; color: #e2e8f0; font-size: 14px;
-          resize: none; font-family: inherit;
-          max-height: 120px; line-height: 1.6;
-        }
-        textarea::placeholder { color: #2a3a52; }
-
-        .send-btn {
-          background: #2563eb; border: none; border-radius: 10px;
-          width: 38px; height: 38px; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          transition: background 0.2s; flex-shrink: 0;
-        }
-        .send-btn:hover { background: #1d4ed8; }
-        .send-btn:disabled { background: #1e2940; cursor: not-allowed; }
-
-        .powered {
-          text-align: center; font-size: 11px; color: #1e2940;
-          padding-bottom: 8px;
-        }
-      `}</style>
-
+    <div style={{
+      minHeight: "100vh", background: "#0a0d14",
+      color: "#e2e8f0", fontFamily: "Segoe UI, sans-serif",
+      display: "flex", flexDirection: "column"
+    }}>
       {/* Header */}
-      <div className="header">
-        <div className="header-icon">
-          <Package size={20} color="#60a5fa" />
-        </div>
+      <div style={{
+        background: "#0f1623", borderBottom: "1px solid #1e2940",
+        padding: "16px 32px", display: "flex",
+        alignItems: "center", gap: "12px"
+      }}>
+        <div style={{
+          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          borderRadius: "10px", padding: "8px",
+          fontSize: "20px"
+        }}>🌐</div>
         <div>
-          <div className="header-title">Logistics AI Agent</div>
-          <div className="header-sub">LangChain · FAISS · Groq LLaMA · FastAPI</div>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: "#fff" }}>
+            Multilingual AI Writer
+          </div>
+          <div style={{ fontSize: "12px", color: "#4a6080" }}>
+            Powered by Groq LLaMA · 100+ Languages
+          </div>
         </div>
-        <div className="online-dot" />
       </div>
 
-      {/* Chat */}
-      <div className="chat">
-        {messages.map((m, i) => (
-          <div key={i} className={`msg ${m.role}`}>
-            <div className={`avatar ${m.role}`}>
-              {m.role === "ai" ? <Bot size={18} color="#60a5fa" /> : <User size={18} color="#a78bfa" />}
-            </div>
-            <div className="bubble">
-              <div className="bubble-label">{m.role === "ai" ? "AI Agent" : "You"}</div>
-              {m.text}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="msg">
-            <div className="avatar ai">
-              <Bot size={18} color="#60a5fa" />
-            </div>
-            <div className="bubble">
-              <div className="bubble-label">AI Agent</div>
-              <div className="typing">
-                <span /><span /><span />
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+      {/* Main */}
+      <div style={{
+        flex: 1, padding: "32px",
+        maxWidth: "1100px", width: "100%", margin: "0 auto"
+      }}>
 
-      {/* Suggestions */}
-      <div className="suggestions">
-        {SUGGESTIONS.map((s, i) => (
-          <div key={i} className="chip" onClick={() => sendQuery(s)}>
-            {s}
-          </div>
-        ))}
-      </div>
+        {/* Mode Toggle */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
+          {["translate", "write"].map(m => (
+            <button key={m} onClick={() => setMode(m)} style={{
+              padding: "8px 20px", borderRadius: "20px",
+              border: mode === m ? "none" : "1px solid #1e2940",
+              background: mode === m
+                ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
+                : "#0f1623",
+              color: "#fff", cursor: "pointer",
+              fontSize: "13px", fontWeight: 600
+            }}>
+              {m === "translate" ? "🔄 Translate" : "✍️ AI Write"}
+            </button>
+          ))}
+        </div>
 
-      {/* Input */}
-      <div className="input-area">
-        <div className="input-box">
-          <textarea
-            rows={1}
-            placeholder="Ask about shipments, NDR, SLA, delays..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendQuery(input);
-              }
-            }}
-          />
-          <button className="send-btn" onClick={() => sendQuery(input)} disabled={loading}>
-            {loading ? <Loader2 size={16} color="white" className="spin" /> : <Send size={16} color="white" />}
+        {/* Editor Layout */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+
+          {/* Input */}
+          <div>
+            <div style={{
+              fontSize: "12px", color: "#6366f1",
+              marginBottom: "8px", fontWeight: 600,
+              textTransform: "uppercase", letterSpacing: "0.8px"
+            }}>
+              Source Content
+            </div>
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Type or paste your content here..."
+              style={{
+                width: "100%", height: "280px",
+                background: "#0f1623", border: "1px solid #1e2940",
+                borderRadius: "12px", padding: "16px",
+                color: "#e2e8f0", fontSize: "14px",
+                lineHeight: "1.7", resize: "none",
+                outline: "none", fontFamily: "inherit"
+              }}
+            />
+            <div style={{
+              fontSize: "12px", color: "#2a3a52",
+              marginTop: "6px", textAlign: "right"
+            }}>
+              {input.length} characters
+            </div>
+          </div>
+
+          {/* Output */}
+          <div>
+            <div style={{
+              fontSize: "12px", color: "#22c55e",
+              marginBottom: "8px", fontWeight: 600,
+              textTransform: "uppercase", letterSpacing: "0.8px"
+            }}>
+              {mode === "translate" ? `Translated — ${targetLang}` : `AI Written — ${targetLang}`}
+            </div>
+            <div style={{
+              width: "100%", height: "280px",
+              background: "#0f1623", border: "1px solid #1e2940",
+              borderRadius: "12px", padding: "16px",
+              color: output ? "#e2e8f0" : "#2a3a52",
+              fontSize: "14px", lineHeight: "1.7",
+              overflowY: "auto", boxSizing: "border-box"
+            }}>
+              {loading ? (
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "8px" }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{
+                      width: "8px", height: "8px",
+                      background: "#6366f1", borderRadius: "50%",
+                      animation: `bounce 1.2s ${i*0.2}s infinite`
+                    }} />
+                  ))}
+                </div>
+              ) : output || "Your output will appear here..."}
+            </div>
+            {output && (
+              <button onClick={() => navigator.clipboard.writeText(output)} style={{
+                marginTop: "8px", background: "transparent",
+                border: "1px solid #1e2940", borderRadius: "8px",
+                color: "#4a6080", padding: "6px 14px",
+                fontSize: "12px", cursor: "pointer"
+              }}>
+                📋 Copy
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{
+          display: "flex", gap: "16px",
+          alignItems: "center", marginTop: "24px"
+        }}>
+          <div>
+            <div style={{ fontSize: "12px", color: "#4a6080", marginBottom: "6px" }}>
+              Target Language
+            </div>
+            <select
+              value={targetLang}
+              onChange={e => setTargetLang(e.target.value)}
+              style={{
+                background: "#0f1623", border: "1px solid #1e2940",
+                borderRadius: "8px", padding: "10px 16px",
+                color: "#e2e8f0", fontSize: "14px",
+                outline: "none", cursor: "pointer"
+              }}
+            >
+              {LANGUAGES.map(l => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          <button onClick={handleGenerate} disabled={loading || !input.trim()} style={{
+            marginTop: "18px",
+            background: loading
+              ? "#1e2940"
+              : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            border: "none", borderRadius: "10px",
+            padding: "11px 32px", color: "#fff",
+            fontSize: "14px", fontWeight: 600,
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "all 0.2s"
+          }}>
+            {loading ? "Processing..." : mode === "translate" ? "🔄 Translate" : "✍️ Generate"}
           </button>
         </div>
       </div>
-      <div className="powered">Built with LangChain · FAISS · Groq · FastAPI · React</div>
+
+      <style>{`
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-8px); }
+        }
+      `}</style>
     </div>
   );
 }

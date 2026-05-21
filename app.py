@@ -10,6 +10,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.memory import ConversationBufferMemory
 from langchain import hub
+from langchain_core.messages import HumanMessage
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -99,6 +100,7 @@ agent_executor = AgentExecutor(
 )
 print("Agent ready!")
 
+# ── Models ────────────────────────────────────────────────────
 class QueryRequest(BaseModel):
     query: str
 
@@ -106,6 +108,10 @@ class QueryResponse(BaseModel):
     response: str
     status: str
 
+class DirectQueryRequest(BaseModel):
+    query: str
+
+# ── Endpoints ─────────────────────────────────────────────────
 @app.get("/")
 def root():
     return {"message": "Logistics AI Agent is running", "status": "healthy"}
@@ -118,6 +124,14 @@ def query_agent(request: QueryRequest):
     except Exception as e:
         return QueryResponse(response=str(e), status="error")
 
+@app.post("/llm/query")
+def direct_llm(request: DirectQueryRequest):
+    try:
+        result = llm.invoke([HumanMessage(content=request.query)])
+        return {"response": result.content, "status": "success"}
+    except Exception as e:
+        return {"response": str(e), "status": "error"}
+
 @app.get("/health")
 def health():
-    return {"status": "healthy", "model": "llama3-8b-8192", "embeddings": "HuggingFace-MiniLM"}
+    return {"status": "healthy", "model": "llama-3.3-70b-versatile", "embeddings": "HuggingFace-MiniLM"}
